@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ThreeCal — three calendars, this tab</title>
+    <meta
+      name="description"
+      content="Paste dates. Get weekday, ISO week, Islamic, and Persian. Nothing is uploaded."
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #1c1917;
+        --muted: #57534e;
+        --line: #e7e5e4;
+        --bg: #fafaf9;
+        --card: #ffffff;
+        --accent: #0f766e;
+        --warn: #9a3412;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.5;
+      }
+      main { max-width: 52rem; margin: 0 auto; padding: 4rem 1.5rem 5rem; }
+      h1 { font-size: 2rem; letter-spacing: -0.03em; margin: 0 0 0.75rem; }
+      h2 { font-size: 1.05rem; margin: 2rem 0 0.5rem; }
+      .kicker { color: var(--muted); font-size: 0.875rem; font-weight: 600; margin: 0 0 0.75rem; }
+      .lede { color: var(--muted); font-size: 1.125rem; max-width: 40rem; }
+      textarea {
+        width: 100%;
+        min-height: 9rem;
+        border: 1px dashed #d6d3d1;
+        border-radius: 1rem;
+        background: var(--card);
+        padding: 1rem 1.1rem;
+        font: inherit;
+        resize: vertical;
+      }
+      button {
+        appearance: none;
+        border: 0;
+        background: var(--ink);
+        color: white;
+        border-radius: 0.6rem;
+        padding: 0.6rem 1rem;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      button.secondary { background: white; color: var(--ink); border: 1px solid var(--line); }
+      .row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 1rem 0; }
+      .meta, .warn { font-size: 0.875rem; }
+      .meta { color: var(--muted); }
+      .warn { color: var(--warn); min-height: 1.3em; }
+      table { width: 100%; border-collapse: collapse; font-size: 0.88rem; background: var(--card); border: 1px solid var(--line); border-radius: 0.9rem; overflow: hidden; }
+      th, td { text-align: left; padding: 0.45rem 0.65rem; border-bottom: 1px solid var(--line); }
+      th { color: var(--muted); font-weight: 600; }
+      .cards { display: grid; gap: 0.75rem; grid-template-columns: 1fr; margin-top: 2rem; }
+      @media (min-width: 640px) { .cards { grid-template-columns: 1fr 1fr 1fr; } }
+      .cards article { border: 1px solid var(--line); border-radius: 0.9rem; padding: 1rem; background: var(--card); }
+      .cards h2 { font-size: 1rem; margin: 0 0 0.4rem; }
+      .cards p { margin: 0; color: var(--muted); font-size: 0.875rem; }
+      footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.875rem; }
+      a { color: inherit; }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="kicker">One job. This tab.</p>
+      <h1>ThreeCal</h1>
+      <p class="lede">
+        Paste a dump of Gregorian dates. Get weekday, ISO week, Islamic civil, and Persian.
+        Nothing is uploaded.
+      </p>
+      <textarea id="src" placeholder="2026-08-20&#10;31 Aug 2026&#10;12/25/2026"></textarea>
+      <p class="warn" id="warn"></p>
+      <div class="row">
+        <button id="run">Convert</button>
+        <button class="secondary" id="copy" type="button" disabled>Copy CSV</button>
+        <button class="secondary" id="reset" type="button">Clear</button>
+      </div>
+      <p class="meta">Cap: 400 lines. Islamic is Kuwaiti civil, not a crescent sighting.</p>
+      <div id="out" class="hidden">
+        <h2>Table</h2>
+        <div style="overflow:auto"><table id="tbl"></table></div>
+      </div>
+      <div class="cards">
+        <article>
+          <h2>Gregorian</h2>
+          <p>Weekday and ISO week from the civil date you pasted.</p>
+        </article>
+        <article>
+          <h2>Islamic</h2>
+          <p>Kuwaiti algorithm. Fine for planning, not for announcing Ramadan.</p>
+        </article>
+        <article>
+          <h2>Persian</h2>
+          <p>Solar Hijri arithmetic. Nowruz is about March 21; this is not an observatory.</p>
+        </article>
+      </div>
+      <footer>
+        Reply to people who already said they keep three calendars in their head:
+        “Paste the dates here. Nothing is uploaded. You get weekday, Islamic, and Persian.”
+        <br /><br />
+        Ask:
+        <a href="https://news.ycombinator.com/item?id=49372607">HN — three calendars to keep track of</a>
+        ·
+        <a href="https://github.com/davidlifschitz/gtm-threecal">source</a>
+      </footer>
+    </main>
+    <script>
+      const DAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+      const IM = ["Muharram","Safar","Rabi I","Rabi II","Jumada I","Jumada II","Rajab","Shaaban","Ramadan","Shawwal","Dhu al-Qadah","Dhu al-Hijjah"];
+      const PM = ["Farvardin","Ordibehesht","Khordad","Tir","Mordad","Shahrivar","Mehr","Aban","Azar","Dey","Bahman","Esfand"];
+
+      const $ = (id) => document.getElementById(id);
+      let lastCsv = "";
+
+      function parseLine(line) {
+        const s = line.trim();
+        if (!s) return null;
+        let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+        if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+        m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+        if (m) {
+          const a = +m[1], b = +m[2], y = +m[3];
+          if (a > 12) return new Date(y, b - 1, a);
+          return new Date(y, a - 1, b);
+        }
+        m = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
+        if (m) {
+          const d = Date.parse(m[2] + " " + m[1] + ", " + m[3]);
+          if (!isNaN(d)) return new Date(d);
+        }
+        const d = Date.parse(s);
+        if (!isNaN(d)) return new Date(d);
+        return null;
+      }
+
+      function isoWeek(dt) {
+        const t = new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate()));
+        const day = t.getUTCDay() || 7;
+        t.setUTCDate(t.getUTCDate() + 4 - day);
+        const y = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+        const w = Math.ceil(((t - y) / 86400000 + 1) / 7);
+        return t.getUTCFullYear() + "-W" + String(w).padStart(2, "0");
+      }
+
+      function jd(y, m, d) {
+        const a = Math.floor((14 - m) / 12);
+        const yy = y + 4800 - a;
+        const mm = m + 12 * a - 3;
+        return d + Math.floor((153 * mm + 2) / 5) + 365 * yy + Math.floor(yy / 4) - Math.floor(yy / 100) + Math.floor(yy / 400) - 32045;
+      }
+
+      function islamic(y, m, d) {
+        const j = jd(y, m, d);
+        const l = j - 1948440 + 10632;
+        const n = Math.floor((l - 1) / 10631);
+        const l2 = l - 10631 * n + 354;
+        const j2 = Math.floor((10985 - l2) / 5316) * Math.floor((50 * l2) / 17719) + Math.floor(l2 / 5670) * Math.floor((43 * l2) / 15238);
+        const l3 = l2 - Math.floor((30 - j2) / 15) * Math.floor((17719 * j2) / 50) - Math.floor(j2 / 16) * Math.floor((15238 * j2) / 43) + 29;
+        const month = Math.floor((24 * l3) / 709);
+        const day = l3 - Math.floor((709 * month) / 24);
+        const year = 30 * n + j2 - 30;
+        return year + " " + IM[month - 1] + " " + day;
+      }
+
+      function persian(y, m, d) {
+        const gy = y - 1600;
+        const gm = m - 1;
+        const gd = d - 1;
+        let gDay = 365 * gy + Math.floor((gy + 3) / 4) - Math.floor((gy + 99) / 100) + Math.floor((gy + 399) / 400);
+        const gdm = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+        gDay += gdm[gm] + gd;
+        if (gm > 1 && ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0)) gDay += 1;
+        let jDay = gDay - 79;
+        const jNp = Math.floor(jDay / 12053);
+        jDay %= 12053;
+        let jy = 979 + 33 * jNp + 4 * Math.floor(jDay / 1461);
+        jDay %= 1461;
+        if (jDay >= 366) {
+          jy += Math.floor((jDay - 1) / 365);
+          jDay = (jDay - 1) % 365;
+        }
+        const jm = jDay < 186 ? 1 + Math.floor(jDay / 31) : 7 + Math.floor((jDay - 186) / 30);
+        const jd2 = 1 + (jDay < 186 ? jDay % 31 : (jDay - 186) % 30);
+        return jy + " " + PM[jm - 1] + " " + jd2;
+      }
+
+      function fmtG(dt) {
+        const y = dt.getFullYear();
+        const m = String(dt.getMonth() + 1).padStart(2, "0");
+        const d = String(dt.getDate()).padStart(2, "0");
+        return y + "-" + m + "-" + d;
+      }
+
+      $("run").onclick = () => {
+        const lines = $("src").value.split(/\n/).slice(0, 400);
+        $("warn").textContent = "";
+        const rows = [["gregorian", "weekday", "iso_week", "islamic", "persian"]];
+        let bad = 0;
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const dt = parseLine(line);
+          if (!dt || isNaN(dt.getTime())) {
+            bad += 1;
+            continue;
+          }
+          const y = dt.getFullYear(), m = dt.getMonth() + 1, d = dt.getDate();
+          rows.push([fmtG(dt), DAYS[dt.getDay()], isoWeek(dt), islamic(y, m, d), persian(y, m, d)]);
+        }
+        if (rows.length === 1) {
+          $("warn").textContent = "No dates parsed. Try YYYY-MM-DD.";
+          return;
+        }
+        if (bad) $("warn").textContent = bad + " line(s) skipped.";
+        $("tbl").innerHTML = rows
+          .map((r, i) => {
+            const cells = r.map((c) => (i ? `<td>${c}</td>` : `<th>${c}</th>`)).join("");
+            return `<tr>${cells}</tr>`;
+          })
+          .join("");
+        lastCsv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+        $("out").classList.remove("hidden");
+        $("copy").disabled = false;
+      };
+
+      $("copy").onclick = async () => {
+        await navigator.clipboard.writeText(lastCsv);
+        $("copy").textContent = "Copied";
+        setTimeout(() => ($("copy").textContent = "Copy CSV"), 1200);
+      };
+
+      $("reset").onclick = () => {
+        $("src").value = "";
+        $("out").classList.add("hidden");
+        $("copy").disabled = true;
+        $("warn").textContent = "";
+      };
+    </script>
+  </body>
+</html>
