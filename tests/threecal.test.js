@@ -66,3 +66,15 @@ describe("line cap", () => {
     expect(w.document.getElementById("warn").textContent).toBe("");
   });
 });
+
+describe("accessibility", () => {
+  it("labels the paste box and announces warnings", () => {
+    const w = load();
+    const src = w.document.getElementById("src");
+    const label = w.document.querySelector(`label[for="src"]`);
+    expect(label?.textContent.trim() || src.getAttribute("aria-label")).toBeTruthy();
+    expect(w.document.getElementById("warn").getAttribute("aria-live")).toBe("polite");
+    run(w, "2026-01-01");
+    expect([...w.document.querySelectorAll("#tbl th")].every((th) => th.getAttribute("scope") === "col")).toBe(true);
+  });
+});

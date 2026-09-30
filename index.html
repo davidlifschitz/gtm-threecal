@@ -69,6 +69,7 @@
       footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.875rem; }
       a { color: inherit; }
       .hidden { display: none; }
+      .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     </style>
   </head>
   <body>
@@ -79,8 +80,9 @@
         Paste a dump of Gregorian dates. Get weekday, ISO week, Islamic civil, and Persian.
         Nothing is uploaded.
       </p>
+      <label for="src" class="sr-only">Dates, one per line</label>
       <textarea id="src" placeholder="2026-08-20&#10;31 Aug 2026&#10;12/25/2026"></textarea>
-      <p class="warn" id="warn"></p>
+      <p class="warn" id="warn" role="status" aria-live="polite"></p>
       <div class="row">
         <button id="run">Convert</button>
         <button class="secondary" id="copy" type="button" disabled>Copy CSV</button>
@@ -240,7 +242,7 @@
         $("warn").textContent = notes.join(" ");
         $("tbl").innerHTML = rows
           .map((r, i) => {
-            const cells = r.map((c) => (i ? `<td>${c}</td>` : `<th>${c}</th>`)).join("");
+            const cells = r.map((c) => (i ? `<td>${c}</td>` : `<th scope="col">${c}</th>`)).join("");
             return `<tr>${cells}</tr>`;
           })
           .join("");
