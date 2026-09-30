@@ -43,3 +43,12 @@ describe("page", () => {
     expect(w.__clip.split("\n")[1]).toMatch(/^"2026-03-21","Saturday"/);
   });
 });
+
+describe("impossible dates", () => {
+  it("skips dates that don't exist instead of rolling over", () => {
+    const w = load();
+    const rows = run(w, "2026-02-31\n31 Feb 2026\n13/13/2026\n2026-02-29\n2024-02-29\n31/12/2026\nFeb 30, 2026\nMar 5, 2026");
+    expect(rows.map((r) => r[0])).toEqual(["2024-02-29", "2026-12-31", "2026-03-05"]);
+    expect(w.document.getElementById("warn").textContent).toMatch(/5 line/);
+  });
+});

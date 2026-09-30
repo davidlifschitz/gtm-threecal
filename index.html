@@ -123,21 +123,32 @@
       const $ = (id) => document.getElementById(id);
       let lastCsv = "";
 
+      // Build a local date, or null if the parts don't name a real day (no rollover).
+      function ymd(y, m, d) {
+        const dt = new Date(y, m - 1, d);
+        return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d ? dt : null;
+      }
+
       function parseLine(line) {
         const s = line.trim();
         if (!s) return null;
         let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
-        if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+        if (m) return ymd(+m[1], +m[2], +m[3]);
         m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
         if (m) {
           const a = +m[1], b = +m[2], y = +m[3];
-          if (a > 12) return new Date(y, b - 1, a);
-          return new Date(y, a - 1, b);
+          if (a > 12) return ymd(y, b, a);
+          return ymd(y, a, b);
         }
         m = s.match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/);
         if (m) {
-          const d = Date.parse(m[2] + " " + m[1] + ", " + m[3]);
-          if (!isNaN(d)) return new Date(d);
+          const d = Date.parse(m[2] + " 1, " + m[3]);
+          return isNaN(d) ? null : ymd(+m[3], new Date(d).getMonth() + 1, +m[1]);
+        }
+        m = s.match(/^([A-Za-z]+)\.?\s+(\d{1,2}),?\s+(\d{4})$/);
+        if (m) {
+          const d = Date.parse(m[1] + " 1, " + m[3]);
+          return isNaN(d) ? null : ymd(+m[3], new Date(d).getMonth() + 1, +m[2]);
         }
         const d = Date.parse(s);
         if (!isNaN(d)) return new Date(d);
