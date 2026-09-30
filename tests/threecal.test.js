@@ -52,3 +52,17 @@ describe("impossible dates", () => {
     expect(w.document.getElementById("warn").textContent).toMatch(/5 line/);
   });
 });
+
+describe("line cap", () => {
+  it("says how many lines past the cap were left out", () => {
+    const w = load();
+    const text = Array.from({ length: 450 }, (_, i) => `2026-01-${String((i % 28) + 1).padStart(2, "0")}`).join("\n");
+    expect(run(w, text)).toHaveLength(400);
+    expect(w.document.getElementById("warn").textContent).toMatch(/50 line\(s\) past the 400 cap/);
+  });
+  it("stays quiet under the cap", () => {
+    const w = load();
+    run(w, "2026-01-01");
+    expect(w.document.getElementById("warn").textContent).toBe("");
+  });
+});
