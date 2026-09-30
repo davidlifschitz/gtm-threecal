@@ -214,7 +214,9 @@
       }
 
       $("run").onclick = () => {
-        const lines = $("src").value.split(/\n/).slice(0, 400);
+        const all = $("src").value.split(/\n/);
+        const lines = all.slice(0, 400);
+        const cut = all.slice(400).filter((l) => l.trim()).length;
         $("warn").textContent = "";
         const rows = [["gregorian", "weekday", "iso_week", "islamic", "persian"]];
         let bad = 0;
@@ -232,7 +234,10 @@
           $("warn").textContent = "No dates parsed. Try YYYY-MM-DD.";
           return;
         }
-        if (bad) $("warn").textContent = bad + " line(s) skipped.";
+        const notes = [];
+        if (bad) notes.push(bad + " line(s) skipped.");
+        if (cut) notes.push(cut + " line(s) past the 400 cap left out.");
+        $("warn").textContent = notes.join(" ");
         $("tbl").innerHTML = rows
           .map((r, i) => {
             const cells = r.map((c) => (i ? `<td>${c}</td>` : `<th>${c}</th>`)).join("");
